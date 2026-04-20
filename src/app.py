@@ -50,9 +50,11 @@ ultima_fila = df_feat[["inflacion_lag1", "inflacion_lag2", "inflacion_lag3",
                          "var_sal", "var_sal_lag1", "var_tc_3m", "inflacion_3m"]].iloc[[-1]]
 
 prediccion = modelo.predict(ultima_fila)[0]
-import locale
-locale.setlocale(locale.LC_TIME, "es_ES.UTF-8")
-ultimo_mes = df["fecha"].max().strftime("%B %Y")
+
+meses = {1:"enero",2:"febrero",3:"marzo",4:"abril",5:"mayo",6:"junio",
+         7:"julio",8:"agosto",9:"septiembre",10:"octubre",11:"noviembre",12:"diciembre"}
+fecha_max = df["fecha"].max()
+ultimo_mes = f"{meses[fecha_max.month]} {fecha_max.year}"
 
 st.metric(label=f"Inflación estimada para el mes siguiente a {ultimo_mes}", 
           value=f"{prediccion:.2f}%")
