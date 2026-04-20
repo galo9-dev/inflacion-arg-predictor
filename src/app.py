@@ -5,10 +5,13 @@ import pickle
 import shap
 import matplotlib.pyplot as plt
 
-# Cargar datos y modelo
-df = pd.read_csv("../data/raw/datos_finales.csv", parse_dates=["fecha"])
+import os
 
-with open("../data/modelo.pkl", "rb") as f:
+# Cargar datos y modelo
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+df = pd.read_csv(os.path.join(BASE_DIR, "data", "raw", "datos_finales.csv"), parse_dates=["fecha"])
+
+with open(os.path.join(BASE_DIR, "data", "modelo.pkl"), "rb") as f:
     modelo = pickle.load(f)
 
 st.title("Predictor de Inflacion Argentina")
