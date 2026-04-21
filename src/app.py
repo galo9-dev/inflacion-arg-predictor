@@ -4,13 +4,50 @@ import numpy as np
 import pickle
 import shap
 import matplotlib.pyplot as plt
-
+import requests
 import os
 
-# Cargar datos y modelo
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-df = pd.read_csv(os.path.join(BASE_DIR, "data", "raw", "datos_finales.csv"), parse_dates=["fecha"])
+@st.cache_data(ttl=86400)  # cachea los datos 24 horas
+@st.cache_data(ttl=86400)
+def cargar_datos():
+    # IPC
+    url_ipc = "https://apis.datos.gob.ar/series/api/series/?ids=148.3_INIVELNAL_DICI_M_26&limit=100&sort=desc&format=json"
+    data_ipc = requests.get(url_ipc).json()
+    df_ipc = pd.DataFrame(data_ipc["data"], columns=["fecha", "ipc"])
+    df_ipc["fecha"] = pd.to_datetime(df_ipc["fecha"])
+    df_ipc = df_ipc.sort_values("fecha").reset_index(drop=True)
+    df_ipc["inflacion_mensual"] = df_ipc["ipc"].pct_change() * 100
+    df_ipc = df_ipc.dropna()
 
+    # Tipo de cambio
+    url_tc = "https://apis.datos.gob.ar/series/api/series/?ids=168.1_T_CAMBIOR_D_0_0_26&limit=200&collapse=month&collapse_aggregation=end_of_period&format=json"
+    data_tc = requests.get(url_tc).json()
+    df_tc = pd.DataFrame(data_tc["data"], columns=["fecha", "tipo_cambio"])
+    df_tc["fecha"] = pd.to_datetime(df_tc["fecha"])
+    df_tc = df_tc[df_tc["fecha"] <= pd.Timestamp.today()]
+
+    # Salarios
+    url_sal = "https://apis.datos.gob.ar/series/api/series/?ids=149.1_TL_INDIIOS_OCTU_0_21&limit=200&format=json"
+    data_sal = requests.get(url_sal).json()
+    df_sal = pd.DataFrame(data_sal["data"], columns=["fecha", "salarios"])
+    df_sal["fecha"] = pd.to_datetime(df_sal["fecha"])
+
+    # Merge
+    df = pd.merge(df_ipc, df_tc, on="fecha", how="inner")
+    df = pd.merge(df, df_sal, on="fecha", how="inner")
+    return df
+
+df = cargar_datos()
+
+import requests, pandas as pd
+
+url_tc = "https://apis.datos.gob.ar/series/api/series/?ids=168.1_T_CAMBIOR_D_0_0_26&limit=5&sort=desc&collapse=month&collapse_aggregation=end_of_period&format=json"
+print("TC:", requests.get(url_tc).json()["data"][:3])
+
+url_sal = "https://apis.datos.gob.ar/series/api/series/?ids=149.1_TL_INDIIOS_OCTU_0_21&limit=5&sort=desc&format=json"
+print("SAL:", requests.get(url_sal).json()["data"][:3])
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 with open(os.path.join(BASE_DIR, "data", "modelo.pkl"), "rb") as f:
     modelo = pickle.load(f)
 
@@ -58,6 +95,7 @@ ultimo_mes = f"{meses[fecha_max.month]} {fecha_max.year}"
 
 st.metric(label=f"Inflación estimada para el mes siguiente a {ultimo_mes}", 
           value=f"{prediccion:.2f}%")
+st.info(f"Datos disponibles hasta {ultimo_mes}. La app se actualiza automáticamente cuando el INDEC publica nuevos datos en datos.gob.ar")
 
 st.caption("⚠️ Este modelo es experimental. Los shocks políticos y cambiarios no son predecibles con datos históricos.")
 
